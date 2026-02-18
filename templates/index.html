@@ -1,41 +1,248 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-   <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Forest cover prediction</title>
-      <link rel="stylesheet" href="static/index.css">
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"/>
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
-
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Cover Type Prediction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .info {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info p {
+            color: #555;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .info p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-train {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-train:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-predict {
+            background: #764ba2;
+            color: white;
+        }
+        
+        .btn-predict:hover {
+            background: #64398a;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(118, 75, 162, 0.4);
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+        
+        .features {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+        
+        .features h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .features ul {
+            list-style: none;
+        }
+        
+        .features li {
+            color: #666;
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-    
     <div class="container">
-        <br>
-        <h1 class="text-center">Forest cover prediction</h1>
-        <br>
-        <div class="row">
-            <div class="col-sm-6">
-              <div class="card">
-                <div class="card-body">
-                  <h5 class="card-title">Prediction</h5>
-                  <p class="card-text">Used best model to get predictions and prediction are stored in io files bucket</p>
-                  <a href="/predict" class="btn btn-primary">Predict</a>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="card">
-                <div class="card-body">
-                  <h5 class="card-title">Training</h5>
-                  <p class="card-text">Initiate training! Once started can not be stopped</p>
-                  <a href="/train" class="btn btn-danger">Training</a>
-                </div>
-              </div>
-            </div>
-          </div>
+        <h1>🌲 Forest Cover Type Prediction</h1>
+        <p class="subtitle">ML-Powered Forest Classification System</p>
+        
+        <div class="info">
+            <p><strong>Project Description:</strong></p>
+            <p>This application predicts forest cover types based on cartographic variables. Train a machine learning model or make predictions on new data using our FastAPI service.</p>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn btn-train" onclick="trainModel()">🚀 Train Model</button>
+            <button class="btn btn-predict" onclick="makePrediction()">🔮 Make Prediction</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="features">
+            <h3>Key Features</h3>
+            <ul>
+                <li>Random Forest Classification</li>
+                <li>Automatic Data Preprocessing</li>
+                <li>S3 Integration for Results</li>
+                <li>Real-time Predictions</li>
+                <li>Scalable Architecture</li>
+            </ul>
+        </div>
     </div>
     
+    <script>
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+        
+        function trainModel() {
+            showStatus('Training model... ' + '<span class="loading-spinner"></span>', 'loading');
+            
+            fetch('/train')
+                .then(response => response.text())
+                .then(data => {
+                    showStatus('✓ Training completed successfully!', 'success');
+                    console.log(data);
+                })
+                .catch(error => {
+                    showStatus('✗ Training failed: ' + error.message, 'error');
+                    console.error('Error:', error);
+                });
+        }
+        
+        function makePrediction() {
+            showStatus('Making predictions... ' + '<span class="loading-spinner"></span>', 'loading');
+            
+            fetch('/predict')
+                .then(response => response.text())
+                .then(data => {
+                    showStatus('✓ Predictions completed successfully! Results saved to S3.', 'success');
+                    console.log(data);
+                })
+                .catch(error => {
+                    showStatus('✗ Prediction failed: ' + error.message, 'error');
+                    console.error('Error:', error);
+                });
+        }
+    </script>
 </body>
 </html>
