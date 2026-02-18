@@ -3,17 +3,21 @@ name: Deploy Application Docker Image to EC2 instance
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   Continuous-Integration:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -21,7 +25,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
@@ -30,19 +34,27 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPO }}
           IMAGE_TAG: latest
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .  
+          echo "Building Docker image..."
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          echo "Pushing Docker image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "✅ Docker image built and pushed successfully!"
 
   Continuous-Deployment:
     needs: Continuous-Integration
     runs-on: self-hosted
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -50,7 +62,43 @@ jobs:
 
       - name: AWS ECR Login
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Stop existing container
+        run: |
+          echo "Stopping existing container..."
+          docker ps -q --filter "ancestor=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest" | xargs -r docker stop || true
+          docker ps -aq --filter "ancestor=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest" | xargs -r docker rm || true
+          echo "✅ Existing container stopped"
+
+      - name: Pull latest image from ECR
+        run: |
+          echo "Pulling latest image..."
+          docker pull "${{ steps.login-ecr.outputs.registry }}"/"${{ secrets.ECR_REPO }}":latest
+          echo "✅ Latest image pulled"
 
       - name: Run Docker Image to serve users
-        run: docker run -d -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" -e MONGODB_URL="${{ secrets.MONGODB_URL }}" -p 8080:8080 "${{ steps.login-ecr.outputs.registry }}"/"${{ secrets.ECR_REPO }}":latest
+        run: |
+          echo "Starting new container..."
+          docker run -d \
+            -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
+            -e MONGODB_URL="${{ secrets.MONGODB_URL }}" \
+            -p 8080:8080 \
+            --name greenvision-app \
+            --restart unless-stopped \
+            "${{ steps.login-ecr.outputs.registry }}"/"${{ secrets.ECR_REPO }}":latest
+          
+          echo "✅ Application deployed successfully!"
+          echo "🌐 Application URL: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
+
+      - name: Health check
+        run: |
+          echo "Waiting for application to start..."
+          sleep 10
+          
+          echo "Checking application health..."
+          curl -f http://localhost:8080/ || echo "⚠️ Health check failed - application may still be starting"
+          
+          echo "✅ Deployment complete!"

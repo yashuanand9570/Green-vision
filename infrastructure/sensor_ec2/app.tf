@@ -7,6 +7,7 @@ resource "aws_instance" "app_instance" {
   instance_type          = var.app_instance_type
   key_name               = var.app_key_pair_name
   vpc_security_group_ids = [aws_security_group.security_group.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2_instance_profile.name
 
   tags = {
     Name = var.app_tag_name

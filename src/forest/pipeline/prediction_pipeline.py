@@ -33,7 +33,7 @@ class PredictionPipeline:
             logger.error(f"Error loading model: {str(e)}")
             raise
     
-def initiate_prediction(self):
+    def initiate_prediction(self):
         """Initiate prediction pipeline"""
         try:
             logger.info("Starting prediction pipeline...")

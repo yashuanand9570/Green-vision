@@ -45,8 +45,29 @@ The dataset used to predict stroke is a dataset from Kaggle. This dataset has be
 - 1 target column (Cover_Type).
 
 
- ## 💻 How to setup:
+## 💻 How to setup:
 
+### Quick Start
+
+#### Windows:
+```bash
+deploy.bat
+```
+
+#### Linux/Mac:
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+This will:
+- ✅ Check Python installation
+- ✅ Install dependencies
+- ✅ Create `.env` file
+- ✅ Build Docker image (optional)
+- ✅ Set up directories
+
+### Manual Setup
 
 Creating conda environment
 ```
@@ -71,7 +92,7 @@ export AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
 
 export AWS_DEFAULT_REGION=<AWS_DEFAULT_REGION>
 
-export MONGODB_URL="mongodb+srv://<username>:<password>@ineuron-ai-projects.7eh1w4s.mongodb.net/?retryWrites=true&w=majority"
+export MONGODB_URL="mongodb+srv://<username>:<password>@cluster.mongodb.net/?retryWrites=true&w=majority"
 
 ```
 Run the live server using uvicorn
@@ -80,8 +101,33 @@ python app.py
 ```
 To launch ui
 ```
-http://127.0.0.1:5000/
+http://127.0.0.1:8080/
 ```
+
+## 🚀 Deployment
+
+This project includes complete CI/CD pipeline and infrastructure as code:
+
+### Documentation
+- 📖 [SETUP.md](./SETUP.md) - Complete setup guide
+- 🚀 [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment instructions
+- ✅ [CHECKLIST.md](./CHECKLIST.md) - Pre-deployment checklist
+
+### Cloud Deployment
+1. Configure GitHub Secrets (AWS credentials, MongoDB URL)
+2. Create S3 bucket for Terraform state: `aws s3 mb s3://sensor-tf-state --region us-east-1`
+3. Push to main branch - GitHub Actions will automatically:
+   - Build Docker image
+   - Push to AWS ECR
+   - Deploy to EC2 instance
+
+### Infrastructure
+- **Terraform** - Complete IaC setup for AWS resources
+- **GitHub Actions** - Automated CI/CD pipeline
+- **Docker** - Containerized deployment
+- **AWS EC2** - Application hosting
+- **AWS ECR** - Docker image registry
+- **AWS S3** - Model and data storage
 
 ## 🏭 Industrial Use-cases 
 1. Scientists can predict future wild fires & hence can save flora and fona.
