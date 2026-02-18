@@ -1,165 +1,128 @@
-
-import sys
-import os
-import numpy as np
+import logging
 import pandas as pd
-from pandas import DataFrame
-from src.forest.cloud_storage.aws_storage import SimpleStorageService
-from src.forest.exception import ForestException
-from src.forest.logger import logging
-from src.forest.utils.main_utils import read_yaml_file
-from src.forest.constant.training_pipeline import SCHEMA_FILE_PATH
-from src.forest.entity.config_entity import PredictionPipelineConfig
-from src.forest.entity.s3_estimator import SensorEstimator
+import pickle
+import os
+import boto3
+from datetime import datetime
 
+logger = logging.getLogger(__name__)
 
 class PredictionPipeline:
-    def __init__(self,prediction_pipeline_config:PredictionPipelineConfig=PredictionPipelineConfig(),)->None:
-        """
-        :param prediction_pipeline_config:
-        """
+    def __init__(self):
+        self.model = None
+        self.scaler = None
+        self.s3_client = None
+        self.load_model()
+        
+    def load_model(self):
+        """Load saved model and scaler"""
         try:
-            self.schema_config = read_yaml_file(SCHEMA_FILE_PATH)
-            self.prediction_pipeline_config = prediction_pipeline_config
-            self.s3 = SimpleStorageService()
+            if os.path.exists('models/model.pkl'):
+                with open('models/model.pkl', 'rb') as f:
+                    self.model = pickle.load(f)
+                
+                with open('models/scaler.pkl', 'rb') as f:
+                    self.scaler = pickle.load(f)
+                
+                logger.info("Model and scaler loaded successfully!")
+            else:
+                logger.warning("Model files not found. Using dummy model.")
+                self.model = None
+                self.scaler = None
         except Exception as e:
-            raise ForestException(e,sys)
-
-    def get_data(self,)->DataFrame:
+            logger.error(f"Error loading model: {str(e)}")
+            raise
+    
+def initiate_prediction(self):
+        """Initiate prediction pipeline"""
         try:
-            logging.info("Entered get_data method of PredictionPipeline class")
-
-            try:
-                # Try to read the prediction data from S3
-                prediction_df: DataFrame = self.s3.read_csv(
-                    filename=self.prediction_pipeline_config.data_file_path,
-                    bucket_name=self.prediction_pipeline_config.data_bucket_name
-                )
-                logging.info("Read prediction csv file from s3 bucket")
-            except Exception as s3_error:
-                # If file doesn't exist in S3, create a sample dataframe for testing
-                logging.warning(f"Could not read prediction data from S3: {str(s3_error)}")
-                logging.info("Creating a sample dataframe for testing purposes")
-
-                # Use the numerical_columns from schema which has the correct case
-                columns = self.schema_config["numerical_columns"]
-                logging.info(f"Using numerical columns from schema: {columns}")
-
-                # Create an empty dataframe with the correct columns
-                prediction_df = pd.DataFrame(columns=columns)
-
-                # Add a sample row with default values (all zeros)
-                sample_row = {col: 0 for col in columns}
-
-                # Use pandas concat instead of append (which is deprecated)
-                prediction_df = pd.concat([prediction_df, pd.DataFrame([sample_row])], ignore_index=True)
-
-                # Log the column names to verify
-                logging.info(f"Created sample dataframe with columns: {prediction_df.columns.tolist()}")
-
-                logging.info(f"Created sample dataframe with columns: {columns}")
-
-            logging.info("Exited the get_data method of PredictionPipeline class")
-            return prediction_df
-        except Exception as e:
-            raise ForestException(e, sys)
-
-
-
-    def predict(self,dataframe)->np.ndarray:
-        try:
-            logging.info("Entered predict method of PredictionPipeline class")
-            logging.info(f"Input dataframe shape: {dataframe.shape}")
-            logging.info(f"Input dataframe columns: {dataframe.columns.tolist()}")
-
-            # Create the model estimator
-            model = SensorEstimator(
-                bucket_name=self.prediction_pipeline_config.model_bucket_name,
-                model_path=self.prediction_pipeline_config.model_file_path
-            )
-            logging.info(f"Created SensorEstimator with bucket: {self.prediction_pipeline_config.model_bucket_name}, path: {self.prediction_pipeline_config.model_file_path}")
-
-            # Check if model is present
-            is_model_present = model.is_model_present(self.prediction_pipeline_config.model_file_path)
-            logging.info(f"Is model present in S3: {is_model_present}")
-
-            if not is_model_present:
-                raise ForestException(f"Model not found at {self.prediction_pipeline_config.model_file_path} in bucket {self.prediction_pipeline_config.model_bucket_name}", sys)
-
+            logger.info("Starting prediction pipeline...")
+            
+            # Load prediction data
+            data = self.load_prediction_data()
+            
+            if data is None or data.empty:
+                logger.warning("No prediction data found")
+                return
+            
             # Make predictions
-            logging.info("Making predictions...")
-            predictions = model.predict(dataframe)
-            logging.info(f"Predictions shape: {predictions.shape if hasattr(predictions, 'shape') else 'unknown'}")
-            logging.info("Exited the predict method of PredictionPipeline class")
-
+            predictions = self.make_predictions(data)
+            
+            # Save predictions
+            self.save_predictions(predictions)
+            
+            logger.info("Prediction pipeline completed successfully!")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error in prediction pipeline: {str(e)}")
+            raise
+    
+    def load_prediction_data(self):
+        """Load data for prediction"""
+        try:
+            if os.path.exists('data/prediction_data.csv'):
+                data = pd.read_csv('data/prediction_data.csv')
+                logger.info(f"Prediction data loaded with shape: {data.shape}")
+                return data
+            else:
+                logger.warning("Prediction data file not found")
+                return None
+        except Exception as e:
+            logger.error(f"Error loading prediction data: {str(e)}")
+            return None
+    
+    def make_predictions(self, data):
+        """Make predictions on the data"""
+        try:
+            if self.model is None:
+                logger.warning("Model not available. Using random predictions.")
+                predictions = [0] * len(data)
+            else:
+                # Scale data
+                X_scaled = self.scaler.transform(data)
+                # Make predictions
+                predictions = self.model.predict(X_scaled)
+            
+            logger.info(f"Predictions made for {len(predictions)} samples")
             return predictions
         except Exception as e:
-            logging.error(f"Error in predict method: {str(e)}")
-            raise ForestException(e, sys)
-
-
-    def initiate_prediction(self,)->None:
+            logger.error(f"Error making predictions: {str(e)}")
+            raise
+    
+    def save_predictions(self, predictions):
+        """Save predictions to CSV and upload to S3"""
         try:
-            logging.info("Entered initiate_prediction method of PredictionPipeline class")
-
-            # Get data (either from S3 or a sample dataframe)
-            dataframe = self.get_data()
-            logging.info(f"Got dataframe with shape: {dataframe.shape}")
-
+            # Save locally
+            os.makedirs('predictions', exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f'predictions/predictions_{timestamp}.csv'
+            
+            df_predictions = pd.DataFrame({
+                'prediction': predictions,
+                'timestamp': datetime.now()
+            })
+            df_predictions.to_csv(filename, index=False)
+            logger.info(f"Predictions saved to {filename}")
+            
+            # Upload to S3 (optional)
             try:
-                # Try to make predictions
-                predicted_arr = self.predict(dataframe)
-                logging.info(f"Made predictions with shape: {predicted_arr.shape if hasattr(predicted_arr, 'shape') else 'unknown'}")
-
-                # Create a dataframe with predictions
-                prediction = pd.DataFrame(list(predicted_arr))
-                prediction.columns = ['Cover_Type']
-
-                # If the original dataframe already has Cover_Type column, drop it before concatenating
-                if 'Cover_Type' in dataframe.columns:
-                    dataframe = dataframe.drop('Cover_Type', axis=1)
-                    logging.info("Dropped existing Cover_Type column from input dataframe")
-
-                # Combine original data with predictions
-                predicted_dataframe = pd.concat([dataframe, prediction], axis=1)
-                logging.info(f"Created final dataframe with shape: {predicted_dataframe.shape}")
-            except Exception as predict_error:
-                # If prediction fails, create a dummy prediction
-                logging.warning(f"Failed to make predictions: {str(predict_error)}")
-                logging.info("Creating dummy predictions for demonstration purposes")
-
-                # Create a dummy prediction (all 1's)
-                prediction = pd.DataFrame({'Cover_Type': [1] * len(dataframe)})
-
-                # Combine original data with dummy predictions
-                predicted_dataframe = pd.concat([dataframe, prediction], axis=1)
-                logging.info(f"Created final dataframe with dummy predictions, shape: {predicted_dataframe.shape}")
-
-            try:
-                # Try to upload the results to S3
-                self.s3.upload_df_as_csv(
-                    predicted_dataframe,
-                    self.prediction_pipeline_config.output_file_name,
-                    self.prediction_pipeline_config.output_file_name,
-                    self.prediction_pipeline_config.data_bucket_name,
-                )
-                logging.info(f"Uploaded predictions to S3 bucket: {self.prediction_pipeline_config.data_bucket_name}")
-            except Exception as upload_error:
-                # If upload fails, log the error but continue
-                logging.warning(f"Failed to upload predictions to S3: {str(upload_error)}")
-                logging.info("Continuing without uploading to S3")
-
-            # Save predictions locally as a fallback
-            local_output_path = os.path.join(os.getcwd(), self.prediction_pipeline_config.output_file_name)
-            predicted_dataframe.to_csv(local_output_path, index=False)
-            logging.info(f"Saved predictions locally to: {local_output_path}")
-
-            logging.info("Exited initiate_prediction method of PredictionPipeline class")
-            return predicted_dataframe
+                self.upload_to_s3(filename)
+            except Exception as e:
+                logger.warning(f"S3 upload failed (optional): {str(e)}")
+        
         except Exception as e:
-            logging.error(f"Error in initiate_prediction: {str(e)}")
-            raise ForestException(e, sys)
-
-
-
-
+            logger.error(f"Error saving predictions: {str(e)}")
+            raise
+    
+    def upload_to_s3(self, filename):
+        """Upload predictions to S3 bucket"""
+        try:
+            s3_bucket = os.getenv('S3_BUCKET', 'forest-predictions')
+            
+            s3_client = boto3.client('s3')
+            s3_client.upload_file(filename, s3_bucket, os.path.basename(filename))
+            logger.info(f"File uploaded to S3: {s3_bucket}/{os.path.basename(filename)}")
+        except Exception as e:
+            logger.warning(f"S3 upload failed: {str(e)}")
+            raise
