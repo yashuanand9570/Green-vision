@@ -13,7 +13,7 @@ boto3==1.24.84
 botocore-stubs==1.27.86
 mypy-boto3-s3==1.24.76
 types-s3transfer==0.6.0.post4
-jinja2==3.1.2
+jinja2==3.1.6
 neuro-mf==0.0.5
 pip-chill==1.0.1
 watchfiles==0.17.0
