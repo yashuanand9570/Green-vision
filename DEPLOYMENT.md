@@ -30,8 +30,43 @@ Or create manually in AWS S3 Console.
 
 ## Step 3: Deploy Infrastructure with Terraform
 
-### Option A: Using GitHub Actions (Recommended)
-The `terraform.yml` workflow will automatically run when you push changes to the `infrastructure/` folder.
+### Option A: Using GitHub Actions UI (Recommended - No Terminal Needed!)
+
+We have three GitHub Actions workflows for infrastructure management:
+
+#### 1. **Deploy Infrastructure** (`deploy-infrastructure.yml`)
+- **Purpose**: Deploy, update, or destroy infrastructure
+- **How to run**:
+  1. Go to **Actions** tab in GitHub
+  2. Click **Deploy Infrastructure** workflow
+  3. Click **Run workflow** button
+  4. Select options:
+     - **Environment**: `dev`, `staging`, or `production`
+     - **Terraform action**: `plan`, `apply`, or `destroy`
+  5. Click **Run workflow**
+- **Features**:
+  - Shows step-by-step progress in real-time
+  - Displays all resource IDs and IPs in job summary
+  - Saves Terraform outputs as downloadable artifacts
+  - Automatically creates job summary with connection details
+
+#### 2. **Infrastructure Status** (`infrastructure-status.yml`)
+- **Purpose**: Check current infrastructure status without making changes
+- **How to run**:
+  1. Go to **Actions** tab in GitHub
+  2. Click **Infrastructure Status** workflow
+  3. Click **Run workflow** button
+  4. Choose detailed output (optional)
+  5. Click **Run workflow**
+- **Features**:
+  - Shows current Terraform state
+  - Lists all running AWS resources
+  - Displays public IPs and connection info
+  - Generates downloadable status report
+
+#### 3. **Auto Deploy** (`terraform.yml`)
+- **Purpose**: Automatically deploys when infrastructure code changes
+- **Trigger**: Automatically runs on push to `main` branch with changes to `infrastructure/`
 
 ### Option B: Local Terraform
 ```bash
@@ -54,10 +89,24 @@ GitHub Actions will:
 
 ## Step 5: Access Application
 
+After running the **Deploy Infrastructure** workflow, you'll see a job summary with:
+- **EC2 Instance**: Instance ID, Public IP, Public DNS
+- **ECR Repository**: Repository URL and Name
+- **S3 Buckets**: Model bucket and Prediction data bucket names
+- **Application URL**: Direct link to access your application
+
 Once deployed, access at:
 ```
 http://<your-ec2-public-ip>:8080/
 ```
+
+You can also download the `terraform-outputs` artifact from the workflow run for detailed JSON output.
+
+### Quick Status Check
+To quickly check what's running without making changes:
+1. Go to **Actions** → **Infrastructure Status**
+2. Click **Run workflow**
+3. View the summary for all connection details
 
 ## Local Development
 
