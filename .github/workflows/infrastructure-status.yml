@@ -153,10 +153,11 @@ jobs:
       - name: 💾 Save Status Report
         run: |
           # Create a detailed status report file
-          cat > status-report.txt << 'EOF'
+          REPORT_DATE=$(date)
+          cat > status-report.txt << EOF
           Infrastructure Status Report
           ============================
-          Generated: $(date)
+          Generated: $REPORT_DATE
           
           Terraform State:
           ----------------
