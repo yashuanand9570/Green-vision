@@ -125,14 +125,14 @@ jobs:
       
       - name: 💾 Upload Terraform Outputs
         if: github.event.inputs.terraform_action != 'destroy'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-${{ env.TF_ENV }}
           path: outputs.json
           retention-days: 30
       
       - name: 💾 Upload Terraform Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-${{ env.TF_ENV }}
           path: infrastructure/tfplan
